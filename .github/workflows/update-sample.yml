@@ -1,0 +1,40 @@
+name: Update Server Sample
+on:
+  schedule:
+    - cron: '0 3 * * *'  # Daily at 3 AM UTC
+  workflow_dispatch:      # Allow manual run
+  push:
+    branches: [ main ]
+    paths:
+      - 'servers.json'
+
+jobs:
+  update-sample:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate sample.json
+        run: |
+          python3 -c "
+import random, json, sys
+
+with open('servers.json', 'r') as f:
+    lines = f.readlines()
+
+# Remove empty lines and sample
+valid_lines = [line.strip() for line in lines if line.strip()]
+sample = random.sample(valid_lines, min(200, len(valid_lines)))
+
+# Parse and output as JSON array
+parsed = [json.loads(line) for line in sample]
+with open('sample.json', 'w') as out:
+    json.dump(parsed, out)
+"
+
+      - name: Commit and push if changed
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@users.noreply.github.com'
+          git add sample.json
+          git diff --staged --quiet || (git commit -m "chore: update server sample" && git push)
