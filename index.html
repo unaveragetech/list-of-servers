@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Server API</title>
+  <style>
+    body { font-family: monospace; padding: 2rem; background: #0f0f0f; color: #0af; }
+    .server { margin-bottom: 1rem; padding: 0.5rem; border-left: 3px solid #0a0; }
+    h1 { color: #0f0; }
+  </style>
+</head>
+<body>
+  <h1>Top 5 Servers</h1>
+  <div id="servers">Loading...</div>
+
+  <script>
+    // Fetch servers.json relative to this page (works on GitHub Pages)
+    fetch('servers.json')
+      .then(response => {
+        if (!response.ok) throw new Error('Failed to load servers.json');
+        return response.json();
+      })
+      .then(servers => {
+        const top5 = servers.slice(0, 5);
+        const container = document.getElementById('servers');
+        
+        if (top5.length === 0) {
+          container.innerHTML = '<p>No servers found.</p>';
+          return;
+        }
+
+        container.innerHTML = top5.map(s => `
+          <div class="server">
+            <strong>${s.name}</strong><br>
+            IP: ${s.ip}:${s.port}<br>
+            Players: ${s.players}
+          </div>
+        `).join('');
+      })
+      .catch(err => {
+        document.getElementById('servers').innerHTML = 
+          `<p style="color:red;">Error: ${err.message}</p>`;
+      });
+  </script>
+</body>
+</html>
