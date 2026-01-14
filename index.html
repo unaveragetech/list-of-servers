@@ -3,42 +3,117 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Random Minecraft Servers</title>
+  <title>Minecraft Servers API</title>
   <style>
-    body { font-family: monospace; padding: 2rem; background: #0f0f0f; color: #0af; }
-    .server { margin-bottom: 1rem; padding: 0.5rem; border-left: 3px solid #0a0; }
-    h1 { color: #0f0; }
+    body {
+      font-family: 'Segoe UI', monospace;
+      padding: 2rem;
+      background: #121212;
+      color: #e0e0e0;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #4caf50;
+      border-bottom: 1px solid #333;
+      padding-bottom: 0.5rem;
+    }
+    .server {
+      background: #1e1e1e;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 6px;
+      border-left: 4px solid #4caf50;
+    }
+    .ip-port {
+      font-weight: bold;
+      color: #bb86fc;
+    }
+    .desc, .version {
+      margin: 0.4rem 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .players {
+      color: #03dac6;
+    }
+    .latency {
+      font-size: 0.9em;
+      color: #cf6679;
+    }
+    .error {
+      color: #f44336;
+    }
+    .note {
+      font-size: 0.9em;
+      color: #888;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body>
-  <h1>Random Servers (from 50k+)</h1>
-  <div id="servers">Loading...</div>
+  <h1>Random Minecraft Servers</h1>
+  <div id="servers">Loading servers...</div>
+  <div class="note">Refresh the page to see a new random selection.</div>
 
   <script>
-    fetch('sample.json')
-      .then(r => r.ok ? r.json() : Promise.reject('Failed to load sample'))
-      .then(servers => {
-        // Pick 5 random from the pre-sampled 200
-        const shuffled = [...servers].sort(() => 0.5 - Math.random());
-        const selected = shuffled.slice(0, 5);
+    fetch('servers.json')
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        return response.text();
+      })
+      .then(text => {
+        const lines = text.split('\n');
+        const allServers = [];
         
-        document.getElementById('servers').innerHTML = selected.map(s => `
-          <div class="server">
-            <strong>${s.ip}:${s.port}</strong><br>
-            ${s.version?.name || 'Unknown'} | Players: ${s.players?.online || 0}/${s.players?.max || '?'}<br>
-            <small>Latency: ${s.latency_ms?.toFixed(1) ?? 'N/A'} ms</small><br>
-            <div style="white-space:pre-wrap">${escapeHtml(s.description || '')}</div>
-          </div>
-        `).join('');
+        // Parse all valid server entries
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const obj = JSON.parse(line);
+            allServers.push(obj);
+          } catch (e) {
+            console.warn('Skipping invalid line:', line.substring(0, 100));
+          }
+        }
+
+        if (allServers.length === 0) {
+          document.getElementById('servers').innerHTML = '<p>No valid servers found.</p>';
+          return;
+        }
+
+        // Randomly sample up to 5 servers
+        const shuffled = [...allServers].sort(() => 0.5 - Math.random());
+        const selected = shuffled.slice(0, 5);
+
+        renderServers(selected);
       })
       .catch(err => {
-        document.getElementById('servers').innerHTML = `<p style="color:red">Error: ${err}</p>`;
+        document.getElementById('servers').innerHTML = 
+          `<p class="error">Failed to load servers: ${err.message}</p>`;
       });
 
-    function escapeHtml(t) {
-      return t.replace(/[&<>"']/g, m => 
-        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])
-      );
+    function renderServers(servers) {
+      const container = document.getElementById('servers');
+      container.innerHTML = servers.map(s => `
+        <div class="server">
+          <div class="ip-port">${s.ip}:${s.port}</div>
+          <div class="version">Version: ${escapeHtml(s.version?.name || 'Unknown')} (proto ${s.version?.protocol || '?'})</div>
+          <div class="players">Players: ${s.players?.online || 0}/${s.players?.max || '?'}</div>
+          <div class="latency">Latency: ${s.latency_ms ? s.latency_ms.toFixed(1) + ' ms' : 'N/A'}</div>
+          <div class="desc">${escapeHtml(s.description || '')}</div>
+        </div>
+      `).join('');
+    }
+
+    function escapeHtml(unsafe) {
+      if (typeof unsafe !== 'string') return String(unsafe);
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
   </script>
 </body>
