@@ -2,8 +2,8 @@ name: Update Server Sample
 
 on:
   schedule:
-    - cron: '0 3 * * *'  # Daily at 3 AM UTC
-  workflow_dispatch:     # Allow manual run
+    - cron: '0 3 * * *'
+  workflow_dispatch:
   push:
     branches: [ main ]
     paths:
@@ -15,22 +15,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
       - name: Generate sample.json
-        run: python .github/scripts/generate_sample.py
+        run: |
+          python3 - <<'PYSCRIPT'
+import random, json, sys, os
+
+try:
+    # Read servers.json safely
+    if not os.path.exists('servers.json'):
+        print('::error::servers.json not found')
+        sys.exit(1)
+    
+    with open('servers.json', 'r') as f:
+        lines = [line.strip() for line in f if line.strip()]
+    
+    if not lines:
+        print('::error::No valid lines in servers.json')
+        sys.exit(1)
+    
+    # Sample 200 lines
+    sample_size = min(200, len(lines))
+    sampled = random.sample(lines, sample_size)
+    
+    # Parse valid JSON objects
+    servers = []
+    for line in sampled:
+        try:
+            servers.append(json.loads(line))
+        except Exception as e:
+            continue
+    
+    # Write sample.json
+    with open('sample.json', 'w') as f:
+        json.dump(servers, f, separators=(',', ':'))
+    
+    print(f'::notice::Sampled {len(servers)}/{sample_size} valid servers')
+    
+except Exception as e:
+    print(f'::error::{str(e)}')
+    sys.exit(1)
+PYSCRIPT
 
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add sample.json
-          if git diff --staged --quiet; then
-            echo "::notice::No changes to commit"
-          else
-            git commit -m "chore: auto-update server sample"
-            git push
-          fi
+          git diff --staged --quiet || git commit -m "chore: auto-update server sample"
+          git push
