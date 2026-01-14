@@ -44,15 +44,19 @@
     .error {
       color: #f44336;
     }
+    .note {
+      font-size: 0.9em;
+      color: #888;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body>
-  <h1>Top 5 Minecraft Servers</h1>
+  <h1>Random Minecraft Servers</h1>
   <div id="servers">Loading servers...</div>
+  <div class="note">Refresh the page to see a new random selection.</div>
 
   <script>
-    // Fetch the NDJSON file (assumed to be named 'servers.txt' or 'servers.json')
-    // GitHub Pages serves .json fine, but if your file has one JSON per line, extension doesn't matter.
     fetch('servers.json')
       .then(response => {
         if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -60,21 +64,29 @@
       })
       .then(text => {
         const lines = text.split('\n');
-        const servers = [];
+        const allServers = [];
         
+        // Parse all valid server entries
         for (const line of lines) {
-          if (!line.trim()) continue; // skip empty lines
+          if (!line.trim()) continue;
           try {
             const obj = JSON.parse(line);
-            servers.push(obj);
-            if (servers.length >= 5) break; // stop at 5
+            allServers.push(obj);
           } catch (e) {
-            console.warn('Skipping invalid JSON line:', line);
-            // Optionally show error, but we'll just skip
+            console.warn('Skipping invalid line:', line.substring(0, 100));
           }
         }
 
-        renderServers(servers);
+        if (allServers.length === 0) {
+          document.getElementById('servers').innerHTML = '<p>No valid servers found.</p>';
+          return;
+        }
+
+        // Randomly sample up to 5 servers
+        const shuffled = [...allServers].sort(() => 0.5 - Math.random());
+        const selected = shuffled.slice(0, 5);
+
+        renderServers(selected);
       })
       .catch(err => {
         document.getElementById('servers').innerHTML = 
@@ -83,12 +95,6 @@
 
     function renderServers(servers) {
       const container = document.getElementById('servers');
-      
-      if (servers.length === 0) {
-        container.innerHTML = '<p>No valid servers found.</p>';
-        return;
-      }
-
       container.innerHTML = servers.map(s => `
         <div class="server">
           <div class="ip-port">${s.ip}:${s.port}</div>
@@ -100,13 +106,12 @@
       `).join('');
     }
 
-    // Simple HTML escape to prevent XSS from server descriptions
     function escapeHtml(unsafe) {
       if (typeof unsafe !== 'string') return String(unsafe);
       return unsafe
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
-        . replace(/>/g, "&gt;")
+        .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
     }
