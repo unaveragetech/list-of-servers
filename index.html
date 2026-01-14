@@ -3,45 +3,113 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Server API</title>
+  <title>Minecraft Servers API</title>
   <style>
-    body { font-family: monospace; padding: 2rem; background: #0f0f0f; color: #0af; }
-    .server { margin-bottom: 1rem; padding: 0.5rem; border-left: 3px solid #0a0; }
-    h1 { color: #0f0; }
+    body {
+      font-family: 'Segoe UI', monospace;
+      padding: 2rem;
+      background: #121212;
+      color: #e0e0e0;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #4caf50;
+      border-bottom: 1px solid #333;
+      padding-bottom: 0.5rem;
+    }
+    .server {
+      background: #1e1e1e;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 6px;
+      border-left: 4px solid #4caf50;
+    }
+    .ip-port {
+      font-weight: bold;
+      color: #bb86fc;
+    }
+    .desc, .version {
+      margin: 0.4rem 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .players {
+      color: #03dac6;
+    }
+    .latency {
+      font-size: 0.9em;
+      color: #cf6679;
+    }
+    .error {
+      color: #f44336;
+    }
   </style>
 </head>
 <body>
-  <h1>Top 5 Servers</h1>
-  <div id="servers">Loading...</div>
+  <h1>Top 5 Minecraft Servers</h1>
+  <div id="servers">Loading servers...</div>
 
   <script>
-    // Fetch servers.json relative to this page (works on GitHub Pages)
+    // Fetch the NDJSON file (assumed to be named 'servers.txt' or 'servers.json')
+    // GitHub Pages serves .json fine, but if your file has one JSON per line, extension doesn't matter.
     fetch('servers.json')
       .then(response => {
-        if (!response.ok) throw new Error('Failed to load servers.json');
-        return response.json();
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        return response.text();
       })
-      .then(servers => {
-        const top5 = servers.slice(0, 5);
-        const container = document.getElementById('servers');
+      .then(text => {
+        const lines = text.split('\n');
+        const servers = [];
         
-        if (top5.length === 0) {
-          container.innerHTML = '<p>No servers found.</p>';
-          return;
+        for (const line of lines) {
+          if (!line.trim()) continue; // skip empty lines
+          try {
+            const obj = JSON.parse(line);
+            servers.push(obj);
+            if (servers.length >= 5) break; // stop at 5
+          } catch (e) {
+            console.warn('Skipping invalid JSON line:', line);
+            // Optionally show error, but we'll just skip
+          }
         }
 
-        container.innerHTML = top5.map(s => `
-          <div class="server">
-            <strong>${s.name}</strong><br>
-            IP: ${s.ip}:${s.port}<br>
-            Players: ${s.players}
-          </div>
-        `).join('');
+        renderServers(servers);
       })
       .catch(err => {
         document.getElementById('servers').innerHTML = 
-          `<p style="color:red;">Error: ${err.message}</p>`;
+          `<p class="error">Failed to load servers: ${err.message}</p>`;
       });
+
+    function renderServers(servers) {
+      const container = document.getElementById('servers');
+      
+      if (servers.length === 0) {
+        container.innerHTML = '<p>No valid servers found.</p>';
+        return;
+      }
+
+      container.innerHTML = servers.map(s => `
+        <div class="server">
+          <div class="ip-port">${s.ip}:${s.port}</div>
+          <div class="version">Version: ${escapeHtml(s.version?.name || 'Unknown')} (proto ${s.version?.protocol || '?'})</div>
+          <div class="players">Players: ${s.players?.online || 0}/${s.players?.max || '?'}</div>
+          <div class="latency">Latency: ${s.latency_ms ? s.latency_ms.toFixed(1) + ' ms' : 'N/A'}</div>
+          <div class="desc">${escapeHtml(s.description || '')}</div>
+        </div>
+      `).join('');
+    }
+
+    // Simple HTML escape to prevent XSS from server descriptions
+    function escapeHtml(unsafe) {
+      if (typeof unsafe !== 'string') return String(unsafe);
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        . replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
   </script>
 </body>
 </html>
